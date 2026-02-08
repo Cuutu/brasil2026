@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import type { Person, Expense, ExchangeRates } from "@/types";
 
 const CATEGORIES = [
@@ -128,6 +129,14 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-teal-900 to-cyan-900 text-white">
       <div className="mx-auto max-w-2xl px-4 py-8">
+        <nav className="mb-4 flex justify-center gap-4 text-sm">
+          <Link href="/" className="font-medium text-emerald-300 underline">
+            Gastos
+          </Link>
+          <Link href="/cosas-importantes" className="text-white/70 hover:text-white">
+            Cosas importantes
+          </Link>
+        </nav>
         <header className="mb-8 text-center">
           <h1 className="text-3xl font-bold tracking-tight">Brasil 2026</h1>
           <p className="mt-1 text-emerald-200/90">Gastos del viaje</p>
@@ -137,7 +146,7 @@ export default function Home() {
         <section className="mb-6 rounded-2xl bg-white/10 p-4 backdrop-blur">
           <h2 className="mb-2 text-sm font-semibold text-emerald-200">Conversión (1 BRL)</h2>
           {rates ? (
-            <div className="flex flex-wrap gap-4 text-lg">
+            <div className="flex flex-wrap items-center gap-4 text-lg">
               <span>1 BRL = {formatMoney(rates.USD, "USD")}</span>
               <span>1 BRL = {formatMoney(rates.ARS, "ARS")}</span>
               <button
@@ -147,6 +156,9 @@ export default function Home() {
               >
                 Actualizar
               </button>
+              {rates.fallback && (
+                <span className="text-sm text-amber-300">(tasas de respaldo)</span>
+              )}
             </div>
           ) : (
             <p className="text-amber-200">Cargando tasas...</p>
@@ -216,7 +228,7 @@ export default function Home() {
               <select
                 value={newExpensePaidBy}
                 onChange={(e) => setNewExpensePaidBy(e.target.value)}
-                className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 focus:border-emerald-400 focus:outline-none"
+                className="rounded-lg border border-white/20 bg-white px-3 py-2 text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               >
                 <option value="">Quién pagó</option>
                 {persons.map((p) => (
@@ -228,7 +240,7 @@ export default function Home() {
               <select
                 value={newExpenseCategory}
                 onChange={(e) => setNewExpenseCategory(e.target.value as Expense["category"])}
-                className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 focus:border-emerald-400 focus:outline-none"
+                className="rounded-lg border border-white/20 bg-white px-3 py-2 text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>

@@ -18,4 +18,14 @@ export interface ExchangeRates {
   USD: number;
   ARS: number;
   updatedAt: string;
+  fallback?: boolean;
+}
+
+export interface ImportantItem {
+  id: string;
+  link: string;
+  information: string;
+  amountBRL: number | null;
+  addedBy: string;
+  createdAt: string;
 }

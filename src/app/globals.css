@@ -24,3 +24,9 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Legibilidad de menús desplegables (select) */
+select option {
+  background: #fff;
+  color: #111;
+}
