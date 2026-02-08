@@ -105,8 +105,13 @@ export default function Home() {
 
   useEffect(() => {
     fetchRates();
-    const t = setInterval(fetchRates, 60 * 60 * 1000);
-    return () => clearInterval(t);
+    const t = setInterval(fetchRates, 15 * 60 * 1000);
+    const onFocus = () => fetchRates();
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
   }, [fetchRates]);
 
   const addPerson = async () => {
@@ -460,7 +465,8 @@ export default function Home() {
         </section>
 
         <footer className="mt-8 text-center text-sm text-white/60">
-          {useLocalOnly ? "Datos en este navegador." : "Datos compartidos en la nube."} Tasas vía Frankfurter API.
+          {useLocalOnly ? "Datos en este navegador." : "Datos compartidos en la nube."} Tasas:{" "}
+          <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white underline">Exchange Rate API</a> / Frankfurter.
         </footer>
       </div>
     </div>
