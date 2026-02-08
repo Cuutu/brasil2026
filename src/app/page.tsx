@@ -43,24 +43,53 @@ export default function Home() {
   const [persons, setPersons] = useState<Person[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [rates, setRates] = useState<ExchangeRates | null>(null);
+  const [useLocalOnly, setUseLocalOnly] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [newPersonName, setNewPersonName] = useState("");
   const [newExpenseDesc, setNewExpenseDesc] = useState("");
   const [newExpenseAmount, setNewExpenseAmount] = useState("");
   const [newExpensePaidBy, setNewExpensePaidBy] = useState("");
   const [newExpenseCategory, setNewExpenseCategory] = useState<Expense["category"]>("general");
 
-  useEffect(() => {
+  const fetchFromApi = useCallback(async () => {
+    try {
+      const [pRes, eRes] = await Promise.all([
+        fetch("/api/persons"),
+        fetch("/api/expenses"),
+      ]);
+      if (pRes.status === 503 || eRes.status === 503) {
+        setUseLocalOnly(true);
+        setPersons(loadPersons());
+        setExpenses(loadExpenses());
+        return;
+      }
+      if (pRes.ok && eRes.ok) {
+        const pData = await pRes.json();
+        const eData = await eRes.json();
+        setPersons(Array.isArray(pData) ? pData : []);
+        setExpenses(Array.isArray(eData) ? eData : []);
+        setUseLocalOnly(false);
+        return;
+      }
+    } catch {
+      /* fall through */
+    }
+    setUseLocalOnly(true);
     setPersons(loadPersons());
     setExpenses(loadExpenses());
   }, []);
 
   useEffect(() => {
-    if (persons.length) localStorage.setItem(STORAGE_PERSONS, JSON.stringify(persons));
-  }, [persons]);
+    fetchFromApi().finally(() => setLoading(false));
+  }, [fetchFromApi]);
 
   useEffect(() => {
-    if (expenses.length) localStorage.setItem(STORAGE_EXPENSES, JSON.stringify(expenses));
-  }, [expenses]);
+    if (useLocalOnly && persons.length) localStorage.setItem(STORAGE_PERSONS, JSON.stringify(persons));
+  }, [useLocalOnly, persons]);
+
+  useEffect(() => {
+    if (useLocalOnly && expenses.length) localStorage.setItem(STORAGE_EXPENSES, JSON.stringify(expenses));
+  }, [useLocalOnly, expenses]);
 
   const fetchRates = useCallback(async () => {
     try {
@@ -80,40 +109,106 @@ export default function Home() {
     return () => clearInterval(t);
   }, [fetchRates]);
 
-  const addPerson = () => {
+  const addPerson = async () => {
     const name = newPersonName.trim() || `Persona ${persons.length + 1}`;
-    if (name) {
+    if (!name) return;
+    if (useLocalOnly) {
+      setPersons((p) => [...p, { id: crypto.randomUUID(), name }]);
+      setNewPersonName("");
+      return;
+    }
+    try {
+      const res = await fetch("/api/persons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPersons((p) => [...p, { id: data.id, name: data.name }]);
+        setNewPersonName("");
+      }
+    } catch {
+      setUseLocalOnly(true);
       setPersons((p) => [...p, { id: crypto.randomUUID(), name }]);
       setNewPersonName("");
     }
   };
 
-  const removePerson = (id: string) => {
+  const removePerson = async (id: string) => {
     if (persons.length <= 1) return;
-    setPersons((p) => p.filter((x) => x.id !== id));
-    setExpenses((e) => e.filter((x) => x.paidBy !== id));
+    if (useLocalOnly) {
+      setPersons((p) => p.filter((x) => x.id !== id));
+      setExpenses((e) => e.filter((x) => x.paidBy !== id));
+      return;
+    }
+    try {
+      const res = await fetch(`/api/persons?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (res.ok) {
+        setPersons((p) => p.filter((x) => x.id !== id));
+        setExpenses((e) => e.filter((x) => x.paidBy !== id));
+      }
+    } catch {
+      setUseLocalOnly(true);
+      setPersons((p) => p.filter((x) => x.id !== id));
+      setExpenses((e) => e.filter((x) => x.paidBy !== id));
+    }
   };
 
-  const addExpense = () => {
+  const addExpense = async () => {
     const amount = parseFloat(newExpenseAmount.replace(",", "."));
     if (!newExpenseDesc.trim() || isNaN(amount) || amount <= 0 || !newExpensePaidBy) return;
-    setExpenses((e) => [
-      ...e,
-      {
-        id: crypto.randomUUID(),
-        description: newExpenseDesc.trim(),
-        amountBRL: amount,
-        paidBy: newExpensePaidBy,
-        category: newExpenseCategory,
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-    setNewExpenseDesc("");
-    setNewExpenseAmount("");
+    const newOne = {
+      id: crypto.randomUUID(),
+      description: newExpenseDesc.trim(),
+      amountBRL: amount,
+      paidBy: newExpensePaidBy,
+      category: newExpenseCategory,
+      createdAt: new Date().toISOString(),
+    };
+    if (useLocalOnly) {
+      setExpenses((e) => [...e, newOne]);
+      setNewExpenseDesc("");
+      setNewExpenseAmount("");
+      return;
+    }
+    try {
+      const res = await fetch("/api/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: newOne.description,
+          amountBRL: newOne.amountBRL,
+          paidBy: newOne.paidBy,
+          category: newOne.category,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setExpenses((e) => [{ id: data.id, description: data.description, amountBRL: data.amountBRL, paidBy: data.paidBy, category: data.category, createdAt: data.createdAt }, ...e]);
+        setNewExpenseDesc("");
+        setNewExpenseAmount("");
+      }
+    } catch {
+      setUseLocalOnly(true);
+      setExpenses((e) => [...e, newOne]);
+      setNewExpenseDesc("");
+      setNewExpenseAmount("");
+    }
   };
 
-  const removeExpense = (id: string) => {
-    setExpenses((e) => e.filter((x) => x.id !== id));
+  const removeExpense = async (id: string) => {
+    if (useLocalOnly) {
+      setExpenses((e) => e.filter((x) => x.id !== id));
+      return;
+    }
+    try {
+      const res = await fetch(`/api/expenses?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (res.ok) setExpenses((e) => e.filter((x) => x.id !== id));
+      else setExpenses((e) => e.filter((x) => x.id !== id));
+    } catch {
+      setExpenses((e) => e.filter((x) => x.id !== id));
+    }
   };
 
   const totalBRL = expenses.reduce((s, e) => s + e.amountBRL, 0);
@@ -141,6 +236,16 @@ export default function Home() {
           <h1 className="text-3xl font-bold tracking-tight">Brasil 2026</h1>
           <p className="mt-1 text-emerald-200/90">Gastos del viaje</p>
         </header>
+
+        {useLocalOnly && (
+          <div className="mb-4 rounded-xl bg-amber-500/20 border border-amber-400/50 px-4 py-3 text-amber-100 text-sm">
+            <strong>Modo local:</strong> los datos solo se guardan en este dispositivo. Para que todo el grupo vea lo mismo, configurá Supabase (ver README) y volvé a cargar.
+          </div>
+        )}
+
+        {loading && (
+          <p className="mb-4 text-center text-white/70">Cargando…</p>
+        )}
 
         {/* Tasas de cambio */}
         <section className="mb-6 rounded-2xl bg-white/10 p-4 backdrop-blur">
@@ -355,7 +460,7 @@ export default function Home() {
         </section>
 
         <footer className="mt-8 text-center text-sm text-white/60">
-          Los datos se guardan en tu navegador. Tasas de cambio vía Frankfurter API.
+          {useLocalOnly ? "Datos en este navegador." : "Datos compartidos en la nube."} Tasas vía Frankfurter API.
         </footer>
       </div>
     </div>

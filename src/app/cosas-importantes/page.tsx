@@ -34,19 +34,48 @@ export default function CosasImportantesPage() {
   const [persons, setPersons] = useState<Person[]>([]);
   const [items, setItems] = useState<ImportantItem[]>([]);
   const [rates, setRates] = useState<ExchangeRates | null>(null);
+  const [useLocalOnly, setUseLocalOnly] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [link, setLink] = useState("");
   const [information, setInformation] = useState("");
   const [amount, setAmount] = useState("");
   const [addedBy, setAddedBy] = useState("");
 
-  useEffect(() => {
+  const fetchFromApi = useCallback(async () => {
+    try {
+      const [pRes, iRes] = await Promise.all([
+        fetch("/api/persons"),
+        fetch("/api/important"),
+      ]);
+      if (pRes.status === 503 || iRes.status === 503) {
+        setUseLocalOnly(true);
+        setPersons(loadPersons());
+        setItems(loadImportant());
+        return;
+      }
+      if (pRes.ok && iRes.ok) {
+        const pData = await pRes.json();
+        const iData = await iRes.json();
+        setPersons(Array.isArray(pData) ? pData : []);
+        setItems(Array.isArray(iData) ? iData : []);
+        setUseLocalOnly(false);
+        return;
+      }
+    } catch {
+      /* fall through */
+    }
+    setUseLocalOnly(true);
     setPersons(loadPersons());
     setItems(loadImportant());
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_IMPORTANT, JSON.stringify(items));
-  }, [items]);
+    fetchFromApi().finally(() => setLoading(false));
+  }, [fetchFromApi]);
+
+  useEffect(() => {
+    if (useLocalOnly) localStorage.setItem(STORAGE_IMPORTANT, JSON.stringify(items));
+  }, [useLocalOnly, items]);
 
   const fetchRates = useCallback(async () => {
     try {
@@ -64,29 +93,65 @@ export default function CosasImportantesPage() {
     fetchRates();
   }, [fetchRates]);
 
-  const addItem = () => {
+  const addItem = async () => {
     if (!information.trim()) return;
     const num = amount.trim() ? parseFloat(amount.replace(",", ".")) : NaN;
     const amountBRL = amount.trim() ? (isNaN(num) || num <= 0 ? null : num) : null;
     if (amount.trim() && amountBRL === null) return;
-    setItems((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        link: link.trim(),
-        information: information.trim(),
-        amountBRL,
-        addedBy: addedBy || (persons[0]?.id ?? ""),
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-    setLink("");
-    setInformation("");
-    setAmount("");
+    const newOne: ImportantItem = {
+      id: crypto.randomUUID(),
+      link: link.trim(),
+      information: information.trim(),
+      amountBRL,
+      addedBy: addedBy || (persons[0]?.id ?? ""),
+      createdAt: new Date().toISOString(),
+    };
+    if (useLocalOnly) {
+      setItems((prev) => [...prev, newOne]);
+      setLink("");
+      setInformation("");
+      setAmount("");
+      return;
+    }
+    try {
+      const res = await fetch("/api/important", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          link: newOne.link,
+          information: newOne.information,
+          amountBRL: newOne.amountBRL,
+          addedBy: newOne.addedBy,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setItems((prev) => [{ id: data.id, link: data.link, information: data.information, amountBRL: data.amountBRL, addedBy: data.addedBy, createdAt: data.createdAt }, ...prev]);
+        setLink("");
+        setInformation("");
+        setAmount("");
+      }
+    } catch {
+      setUseLocalOnly(true);
+      setItems((prev) => [...prev, newOne]);
+      setLink("");
+      setInformation("");
+      setAmount("");
+    }
   };
 
-  const removeItem = (id: string) => {
-    setItems((prev) => prev.filter((x) => x.id !== id));
+  const removeItem = async (id: string) => {
+    if (useLocalOnly) {
+      setItems((prev) => prev.filter((x) => x.id !== id));
+      return;
+    }
+    try {
+      const res = await fetch(`/api/important?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (res.ok) setItems((prev) => prev.filter((x) => x.id !== id));
+      else setItems((prev) => prev.filter((x) => x.id !== id));
+    } catch {
+      setItems((prev) => prev.filter((x) => x.id !== id));
+    }
   };
 
   return (
@@ -104,6 +169,14 @@ export default function CosasImportantesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Cosas importantes</h1>
           <p className="mt-1 text-emerald-200/90">Links, datos y precios de referencia</p>
         </header>
+
+        {useLocalOnly && (
+          <div className="mb-4 rounded-xl bg-amber-500/20 border border-amber-400/50 px-4 py-3 text-amber-100 text-sm">
+            <strong>Modo local:</strong> los datos solo se guardan en este dispositivo. Para compartir con el grupo, configurá Supabase (ver README).
+          </div>
+        )}
+
+        {loading && <p className="mb-4 text-center text-white/70">Cargando…</p>}
 
         {rates && (
           <section className="mb-6 rounded-2xl bg-white/10 p-4 backdrop-blur">
@@ -225,7 +298,7 @@ export default function CosasImportantesPage() {
         </section>
 
         <footer className="mt-8 text-center text-sm text-white/60">
-          Los datos se guardan en tu navegador.
+          {useLocalOnly ? "Datos en este navegador." : "Datos compartidos en la nube."}
         </footer>
       </div>
     </div>
