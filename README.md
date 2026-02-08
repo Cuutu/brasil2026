@@ -1,36 +1,30 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Brasil 2026 – Gastos del viaje
 
-## Getting Started
+App para trackear gastos en un viaje con amigos: quién gastó, división por persona, categorías (Airbnb, vuelos, etc.) y conversión de **reales (BRL)** a **dólares (USD)** y **pesos argentinos (ARS)** en tiempo real.
 
-First, run the development server:
+## Cómo usar en local
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abrí [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Desplegar en Vercel
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Subí el proyecto a GitHub (o GitLab/Bitbucket).
+2. Entrá a [vercel.com](https://vercel.com) e iniciá sesión.
+3. **Add New** → **Project** y elegí este repositorio.
+4. Dejá las opciones por defecto (Vercel detecta Next.js) y hacé **Deploy**.
 
-## Learn More
+Listo: Vercel te da una URL (ej. `brasil2026.vercel.app`). No hace falta configurar variables de entorno para la API de tasas (Frankfurter es gratuita y sin API key).
 
-To learn more about Next.js, take a look at the following resources:
+## Funcionalidades
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Personas**: agregar y quitar viajeros.
+- **Gastos**: monto en BRL, descripción, quién pagó, categoría (Airbnb, vuelos, comida, transporte, etc.).
+- **División**: total y monto por persona.
+- **Balance**: quién debe cuánto (o quién recibe) para cuadrar.
+- **Conversión**: 1 BRL → USD y ARS con tasas actualizadas (API Frankfurter).
+- **Persistencia**: los datos se guardan en el navegador (localStorage).
